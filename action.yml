@@ -1,0 +1,19 @@
+name: 'Update Linear labels'
+description: 'Action that allows to add specified labels to a linear issue'
+inputs:
+  label_name:
+    description: 'Name of the label to add'
+    required: true
+  branch_name:
+    description: 'Name of the branch assotiated with Linear issue'
+    required: true
+  linear_token:
+    description: 'Access token for Linear API'
+    required: true
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.label_name }}
+    - ${{ inputs.branch_name }}
+    - ${{ inputs.linear_token }}
