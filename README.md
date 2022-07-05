@@ -24,7 +24,7 @@ couldn't be set. Please check the stdout to see what went wrong.
 ## Example usage
 
 ```
-uses: actions/update-linear-labels-action@v1
+uses: v7labs/update-linear-labels-action@v1
 with:
   label_name: "Backend"
   branch_name: "${{ github.head_ref }}"

@@ -137,7 +137,7 @@ def label_issue(branch_name, label_to_add, error_exit_code=1):
 
 if __name__ == '__main__':
     try:
-        label_issue(sys.argv[2], sys.argv[1], error_exit_code=int(sys.argv[3]))
+        label_issue(sys.argv[2], sys.argv[1], error_exit_code=int(sys.argv[4]))
     except requests.HTTPError as e:
         print("API response: {}".format(e.response.text), flush=True)
         raise
