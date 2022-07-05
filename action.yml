@@ -10,6 +10,10 @@ inputs:
   linear_token:
     description: 'Access token for Linear API'
     required: true
+  error_exit_code:
+    description: 'Exit code to use when an error occurs'
+    required: false
+    default: 1
 runs:
   using: 'docker'
   image: 'Dockerfile'
@@ -17,3 +21,4 @@ runs:
     - ${{ inputs.label_name }}
     - ${{ inputs.branch_name }}
     - ${{ inputs.linear_token }}
+    - ${{ inputs.error_exit_code }}

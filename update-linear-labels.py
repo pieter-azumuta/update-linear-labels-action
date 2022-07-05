@@ -93,11 +93,11 @@ def set_labels(issue_id, label_ids):
     return None
 
 
-def label_issue(branch_name, label_to_add):
+def label_issue(branch_name, label_to_add, error_exit_code=1):
     match = re.search("^(\w+)-(\d+)-.*$", branch_name)
     if match is None:
         print('Unable to infer issue code from branch name', flush=True)
-        sys.exit(1)
+        sys.exit(error_exit_code)
     team_key = match.group(1).upper()
     issue_number = int(match.group(2))
 
@@ -107,7 +107,7 @@ def label_issue(branch_name, label_to_add):
     issue = get_issue(team_key, issue_number)
     if issue is None:
         print('No matching issues found!', flush=True)
-        sys.exit(1)
+        sys.exit(error_exit_code)
 
     issue_id = issue['id']
     if issue['parent']:
@@ -121,7 +121,7 @@ def label_issue(branch_name, label_to_add):
     new_label_id = get_label_id(team_id, label_to_add)
     if new_label_id is None:
         print('No matching label found!')
-        sys.exit(1)
+        sys.exit(error_exit_code)
 
     label_ids.append(new_label_id)
     label_ids = list(set(label_ids))
@@ -137,7 +137,7 @@ def label_issue(branch_name, label_to_add):
 
 if __name__ == '__main__':
     try:
-        label_issue(sys.argv[2], sys.argv[1])
+        label_issue(sys.argv[2], sys.argv[1], error_exit_code=int(sys.argv[3]))
     except requests.HTTPError as e:
         print("API response: {}".format(e.response.text), flush=True)
         raise
