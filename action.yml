@@ -1,5 +1,7 @@
 name: 'Move Linear issues and add labels'
 description: 'Action that allows to move issues to a workflow status and add a specified label.'
+icon: 'arrow-right-circle'
+color: 'purple'
 inputs:
   linear_token:
     description: 'Access token for Linear API'
