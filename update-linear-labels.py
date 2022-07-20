@@ -1,47 +1,38 @@
+from cmath import log
 import requests
 import sys
 import re
 
-linear_token = sys.argv[3]
+linear_token = sys.argv[1]
 
 url = 'https://api.linear.app/graphql'
 headers = {'Authorization': linear_token,
            'Content-Type': 'application/json'}
 
-
-def get_issue(team_key, issue_number):
+def get_status_id(state_name):
     query = """
-    query Issues($teamKey: String!, $issueNumber: Float) { 
-        issues(filter: {team: {key: {eq: $teamKey}}, number: {eq: $issueNumber}}) {
+    query WorkflowStates($filter: WorkflowStateFilter) {
+        workflowStates(filter: $filter) {
             nodes {
-                id,
-                branchName,
-                parent {
-                    id
-                },
-                team {
-                    id
-                },
-                labels {
-                    nodes {
-                        id
-                    }
-                }
+                id
             }
         }
     }
     """
-    variables = {'teamKey': team_key, 'issueNumber': issue_number}
+    variables = {
+        "filter": {
+            "name": {
+                "eqIgnoreCase": state_name
+            }
+        }
+    }
     payload = {'query': query, 'variables': variables}
 
     response = requests.post(url, headers=headers, json=payload)
     response.raise_for_status()
-    matched_issues = response.json()['data']['issues']['nodes']
-
-    if len(matched_issues) == 0:
-        return None
-    else:
-        return matched_issues[0]
+    status_id = response.json()['data']['workflowStates']['nodes'][0]['id']
+    
+    return status_id;
 
 
 def create_label(team_id, label_name):
@@ -60,13 +51,16 @@ def create_label(team_id, label_name):
 
     response = requests.post(url, headers=headers, json=payload)
     response.raise_for_status()
-    success = response.json()['data']['success']
+    success = response.json()['data']['issueLabelCreate']['success']
     id = response.json()['data']['issueLabelCreate']['issueLabel']['id']
 
     if success:
+        print('Created new label "' + label_name + '"')
         return id
     else:
+        print('Unable to create new label "' + label_name + '"')
         return None
+
 
 def get_label_id(team_id, label_name):
     query = """
@@ -114,56 +108,132 @@ def set_labels(issue_id, label_ids):
 
     response = requests.post(url, headers=headers, json=payload)
     response.raise_for_status()
-    return None
+
+    success = response.json()['data']['issueUpdate']['success']
+    
+    return success
 
 
-def label_issue(branch_name, label_to_add, error_exit_code=1):
-    match = re.search("^(\w+)-(\d+)-.*$", branch_name)
-    if match is None:
-        print('Unable to infer issue code from branch name', flush=True)
-        sys.exit(error_exit_code)
-    team_key = match.group(1).upper()
-    issue_number = int(match.group(2))
-
-    print("Inferred issue code='{}-{}' from branch='{}'".format(team_key,
-          issue_number, branch_name), flush=True)
-
-    issue = get_issue(team_key, issue_number)
-    if issue is None:
-        print('No matching issues found!', flush=True)
-        sys.exit(error_exit_code)
-
+def label_issue(issue, label_name):
     issue_id = issue['id']
-    if issue['parent']:
-        parent_id = issue['parent']['id']
-    else:
-        parent_id = None
-
     team_id = issue['team']['id']
-    label_ids = list(map(
-        lambda x: x['id'], issue['labels']['nodes']))
-    new_label_id = get_label_id(team_id, label_to_add)
+
+    label_ids = list(map(lambda label: label['id'], issue['labels']['nodes']))
+    new_label_id = get_label_id(team_id, label_name)
+
     if new_label_id is None:
         print('No matching label found!')
-        sys.exit(error_exit_code)
+        return None
 
     label_ids.append(new_label_id)
     label_ids = list(set(label_ids))
 
-    set_labels(issue_id, label_ids)
+    success = set_labels(issue_id, label_ids)
+    if success:
+        print('Added label "' + label_name + '" to issue with title "' + issue['title'] + '"')
+    else:
+        print('Unable to add label "' + label_name + '" to issue with title "' + issue['title'] + '"')
+    
+    return success
 
-    # We support only one level of nested issues for now.
-    # Anything more would require writing a recursive query which is not worth it
-    # unless we have use-cases for it.
-    if parent_id:
-        set_labels(parent_id, label_ids)
+def batch_move_issues(issue_ids, status_name):
+    status_id = get_status_id(status_name);
+
+    query = """
+    mutation IssueBatchUpdate($issueBatchUpdateInput: IssueUpdateInput!, $ids: [UUID!]!) {
+        issueBatchUpdate(input: $issueBatchUpdateInput, ids: $ids) {
+            success
+            issues {
+                id
+            }
+        }
+    }
+    """
+    variables = {
+        "ids": issue_ids,
+        "issueBatchUpdateInput": {
+            "stateId": status_id
+        }
+    }
+    payload = {'query': query, 'variables': variables}
+
+    response = requests.post(url, headers=headers, json=payload)
+    response.raise_for_status()
+    success = response.json()['data']['issueBatchUpdate']['success']
+    issueCount = len(response.json()['data']['issueBatchUpdate']['issues'])
+
+    if success:
+        print('Moved "' + str(issueCount) + '" issues to  status with name "' + status_name + '"')
+    else:
+        print('Unable to move "' + str(issueCount) + '" issues to status with name "' + status_name + '"')
+
+    return success
+
+
+def get_issues(status_name):
+    query = """
+    query Issues($filter: IssueFilter) {
+      issues(filter: $filter) {
+        nodes {
+          id
+          title
+          team {
+            id
+          }
+          labels {
+            nodes {
+              id
+              name
+            }
+          }
+        }
+      }
+    }
+    """
+    variables = {
+        "filter": {
+            "state": {
+                "name": {
+                    "eqIgnoreCase": status_name
+                }
+            }
+        }
+    }
+    payload = {'query': query, 'variables': variables}
+
+    response = requests.post(url, headers=headers, json=payload)
+    response.raise_for_status()
+    issues = response.json()['data']['issues']['nodes']
+    
+    return issues
+
+def label_issues(issues, label_name):
+    count = 0
+    for issue in issues:
+        success = label_issue(issue, label_name)
+        if success:
+            count = count+1
+
+    print('Added label "' + label_name + '" to ' + str(count) + ' issues')
 
 
 if __name__ == '__main__':
     try:
-        label_issue(sys.argv[2], sys.argv[1], error_exit_code=int(sys.argv[4]))
+        from_status_name = sys.argv[2]
+        to_status_name = sys.argv[3]
+        label_name = sys.argv[4]
+
+        issues = get_issues(from_status_name)
+        issue_ids = list(map(lambda issue: issue['id'], issues))
+
+        if(len(issue_ids) == 0):
+            print('No issues found with status "' + from_status_name + '"')
+
+            sys.exit()
+
+        batch_move_issues(issue_ids, to_status_name)
+        label_issues(issues, label_name)
+
     except requests.HTTPError as e:
         print("API response: {}".format(e.response.text), flush=True)
         raise
-
-    print("All done!")

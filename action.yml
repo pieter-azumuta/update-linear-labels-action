@@ -1,24 +1,23 @@
-name: 'Update Linear labels'
-description: 'Action that allows to add specified labels to a linear issue'
+name: 'Move Linear issues and add labels'
+description: 'Action that allows to move issues to a workflow status and add a specified label.'
 inputs:
-  label_name:
-    description: 'Name of the label to add'
-    required: true
-  branch_name:
-    description: 'Name of the branch assotiated with Linear issue'
-    required: true
   linear_token:
     description: 'Access token for Linear API'
     required: true
-  error_exit_code:
-    description: 'Exit code to use when an error occurs'
+  from_status_name:
+    description: 'Status name (case insensitive) from which issues will be moved'
+    required: true
+  to_status_name:
+    description: 'New status name (case insensitive) to move issues to'
+    required: true
+  label_name:
+    description: 'Name of the label to add'
     required: false
-    default: 1
 runs:
   using: 'docker'
   image: 'Dockerfile'
   args:
-    - ${{ inputs.label_name }}
-    - ${{ inputs.branch_name }}
     - ${{ inputs.linear_token }}
-    - ${{ inputs.error_exit_code }}
+    - ${{ inputs.from_status_name }}
+    - ${{ inputs.to_status_name }}
+    - ${{ inputs.label_name }}
