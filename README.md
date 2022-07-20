@@ -22,7 +22,7 @@ This action allows to move issues to a workflow status and add a specified label
 ## Example usage
 
 ```
-uses:pieter-azumuta/update-linear-labels-action@v1
+uses: ...
 with:
   linear_token: ...
   from_status_name: Merged
